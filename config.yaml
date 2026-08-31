@@ -1,0 +1,112 @@
+# =============================================================================
+# Ricochet — All physical assumptions live here. Nothing hardcoded in code.
+# =============================================================================
+
+# --- Hard-body radius (combined primary + secondary, metres) -----------------
+# Typical cubesat: 0.3m body, used 10m to account for uncertainty.
+# ESA CARA uses 5m for cubesats; we use 10m conservatively.
+hbr_m: 10.0
+
+# --- Screening geometry -------------------------------------------------------
+screen:
+  window_days: 7              # Screening horizon (days)
+  coarse_step_s: 60           # SGP4 propagation step for coarse filter (seconds)
+  coarse_range_m: 50000.0     # Coarse filter keep threshold (metres; SGP4 output km → multiply 1000)
+  refine_step_s: 1            # Step size for TCA refinement (seconds)
+  refine_bracket_s: 120       # ± seconds around coarse minimum to refine
+  apogee_perigee_margin_m: 50000.0  # Apogee/perigee pre-filter margin (metres)
+
+# --- Nominal covariance model -------------------------------------------------
+# Public TLEs carry NO covariance. We use a nominal RTN model based on
+# published TLE accuracy statistics (Flohrer et al. 2008, Vallado 2012).
+# Sigmas grow linearly with time since TLE epoch (worst-case bound).
+# Units: sigma in metres at epoch; growth in metres/second.
+#
+# R = radial (along position vector)
+# T = tangential (along velocity, cross-track in RTN frame)  
+# N = normal (cross-track / out-of-plane)
+#
+# Conservative values calibrated against ESA MASTER-8 population covariance.
+covariance:
+  sigma_r_m: 100.0            # Radial sigma at epoch (metres)
+  sigma_t_m: 300.0            # Tangential sigma at epoch (metres) — largest, TLE timing error
+  sigma_n_m: 50.0             # Normal sigma at epoch (metres) — inclination error, smaller
+  growth_r_m_per_s: 0.002     # Radial growth (m/s → 172 m/day)
+  growth_t_m_per_s: 0.012     # Tangential growth (m/s → 1036 m/day) — B* uncertainty
+  growth_n_m_per_s: 0.0005    # Normal growth (m/s → 43 m/day)
+  # Apply same model to both primary and secondary (combined = sqrt(2) * each)
+  apply_to_both: true
+
+# --- Pc thresholds ------------------------------------------------------------
+pc:
+  alert_threshold: 1.0e-4     # Standard ops threshold (1-in-10,000)
+  elevated_threshold: 1.0e-5  # Watch threshold (1-in-100,000)
+  min_relative_velocity_ms: 10.0  # Below this, encounter geometry is degenerate
+
+# --- Maneuver trade space -----------------------------------------------------
+maneuver:
+  # Along-track delta-v grid (m/s). Negative = retrograde (lower orbit).
+  dv_min_ms: -2.0
+  dv_max_ms: 2.0
+  dv_steps: 9                 # Grid points including zero
+  # Burn time before primary TCA (seconds)
+  dt_min_s: 3600              # 1 hour
+  dt_max_s: 172800            # 48 hours
+  dt_steps: 9
+  # Propagation for maneuver
+  integrator_step_s: 10.0     # RK45 max step for two-body+J2 propagation
+
+# --- Numerical propagation (two-body + J2) ------------------------------------
+propagation:
+  mu_m3s2: 3.986004418e14     # Earth gravitational parameter (m³/s²)
+  re_m: 6378137.0             # Earth equatorial radius (m) — WGS84
+  j2: 1.08262668e-3           # J2 zonal harmonic coefficient
+  # Note: We propagate primary post-maneuver with this integrator.
+  # Secondaries are propagated with SGP4 (different force model).
+  # This introduces a force-model mismatch, documented in ASSUMPTIONS.md.
+
+# --- Catalog cache ------------------------------------------------------------
+catalog:
+  cache_dir: ".cache"
+  cache_ttl_hours: 4          # Never refetch within this window
+  celestrak_url: "https://celestrak.org/NORAD/elements/gp.php"
+  groups:
+    - name: "active"
+      params: {GROUP: "active", FORMAT: "json"}
+    - name: "debris"
+      params: {GROUP: "cosmos-2251-debris", FORMAT: "json"}
+    - name: "starlink"
+      params: {GROUP: "starlink", FORMAT: "json"}
+  user_agent: "Ricochet-CAM/1.0 (research; github.com/ricochet-cdm)"
+
+# --- AI agent -----------------------------------------------------------------
+ai:
+  model: "granite3.3:8b"      # Granite 3.3 8B via Ollama (tool-calling capable)
+  model_fallback: "granite3.1-dense:8b"
+  temperature: 0.0            # Deterministic for physics reasoning
+  max_tokens: 4096
+  # The LLM NEVER computes physics. It selects tools and interprets results.
+  system_prompt_append: |
+    You are a decision support assistant for satellite collision avoidance.
+    You call tools to compute all physics. You NEVER invent numbers.
+    Every numeric value in your brief must appear verbatim in a tool result.
+    When uncertain, say so. When data is insufficient, say so.
+
+# --- Audit -------------------------------------------------------------------
+audit:
+  log_dir: "audit"
+  pretty_print: true
+
+# --- Display (presentation layer only) ----------------------------------------
+display:
+  distance_unit: "km"
+  velocity_unit: "km/s"
+  probability_format: "scientific"  # "scientific" or "decimal"
+
+# --- Taifa-1 reference (non-maneuverable mode example) -----------------------
+taifa1:
+  norad_id: 56212
+  name: "TAIFA-1"
+  orbit: "SSO ~508km"
+  has_propulsion: false
+  operator: "Kenya Space Agency / Kenyatta University"

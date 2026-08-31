@@ -1,0 +1,15 @@
+{
+  "event_id": "ae2662aa-de8f-4ac6-b0d7-143e301669c7",
+  "timestamp": "2026-08-31T10:25:51.837371+00:00",
+  "tool": "test",
+  "inputs": {
+    "n": 1
+  },
+  "outputs": {
+    "result": 42.0
+  },
+  "model_name": "",
+  "model_version": "",
+  "duration_s": 0.0,
+  "session_id": "e2e-test"
+}
