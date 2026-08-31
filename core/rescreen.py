@@ -552,17 +552,19 @@ def rescreen(
     if np.isnan(baseline_pc):
         baseline_pc = 0.0
 
-    # Find minimum-dv recommendation (smallest |dv| that drops total_pc < threshold)
+    # Find minimum-dv recommendation (smallest |dv| that drops total_pc < threshold).
+    # A burn is only recommended when doing nothing is itself unacceptable —
+    # otherwise the cheapest option is to hold attitude and spend no propellant.
     recommended_dv = None
     recommended_dt = None
-    # Sort grid points by |dv|
-    valid_gps = [gp for gp in grid_points if not np.isnan(gp.total_pc)]
-    valid_gps_sorted = sorted(valid_gps, key=lambda gp: abs(gp.dv_ms))
-    for gp in valid_gps_sorted:
-        if gp.total_pc < alert_threshold and abs(gp.dv_ms) > 1e-6:
-            recommended_dv = gp.dv_ms
-            recommended_dt = gp.dt_before_tca_s
-            break
+    if baseline_pc >= alert_threshold:
+        valid_gps = [gp for gp in grid_points if not np.isnan(gp.total_pc)]
+        valid_gps_sorted = sorted(valid_gps, key=lambda gp: abs(gp.dv_ms))
+        for gp in valid_gps_sorted:
+            if gp.total_pc < alert_threshold and abs(gp.dv_ms) > 1e-6:
+                recommended_dv = gp.dv_ms
+                recommended_dt = gp.dt_before_tca_s
+                break
 
     elapsed = time.time() - t0
 

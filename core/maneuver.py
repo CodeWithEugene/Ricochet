@@ -6,7 +6,7 @@ using numerical integration (two-body + J2 perturbation).
 
 Design decisions:
 - Maneuver is an impulsive along-track burn (velocity change in tangential direction)
-- Propagation: RK45 integrator (scipy) with J2 perturbation
+- Propagation: adaptive Runge-Kutta integrator (scipy, DOP853 by default) with J2 perturbation
 - All constants from config.yaml
 - The first-order analytic drift (3 * dv * dt) is exposed as a TEST ORACLE ONLY
   and is clearly labelled as such; it is never used in the actual implementation
@@ -111,6 +111,17 @@ def _equations_of_motion(t: float, y: np.ndarray, mu: float, re: float, j2: floa
     ])
 
 
+def _integrator_settings(prop_cfg: dict, man_cfg: dict) -> dict:
+    """Integrator keyword arguments for `_propagate_j2`, drawn from config.yaml."""
+    max_step = man_cfg.get("integrator_max_step_s")
+    return {
+        "method": str(prop_cfg.get("integrator_method", "DOP853")),
+        "rtol": float(prop_cfg.get("rtol", 1e-11)),
+        "atol": float(prop_cfg.get("atol", 1e-4)),
+        "max_step_s": None if max_step is None else float(max_step),
+    }
+
+
 def _propagate_j2(
     r0_m: np.ndarray,
     v0_ms: np.ndarray,
@@ -119,16 +130,22 @@ def _propagate_j2(
     mu: float,
     re: float,
     j2: float,
-    max_step_s: float,
+    max_step_s: Optional[float] = None,
+    method: str = "DOP853",
+    rtol: float = 1e-11,
+    atol: float = 1e-4,
 ) -> tuple[np.ndarray, np.ndarray]:
     """
-    Propagate state (r, v) using RK45 with J2 perturbation.
+    Propagate state (r, v) with J2 perturbation using an adaptive Runge-Kutta
+    integrator.
     
     Parameters
     ----------
     r0_m, v0_ms : initial state (metres, m/s)
     t_span_s : (t_start, t_end) relative seconds from burn
     output_times_s : array of times (seconds) at which to evaluate state
+    max_step_s : optional cap on integrator step size. None = adaptive only.
+    method, rtol, atol : integrator settings (see config.yaml `propagation`)
     
     Returns
     -------
@@ -141,11 +158,11 @@ def _propagate_j2(
         fun=lambda t, y: _equations_of_motion(t, y, mu, re, j2),
         t_span=t_span_s,
         y0=y0,
-        method="RK45",
+        method=method,
         t_eval=output_times_s,
-        rtol=1e-9,
-        atol=1e-9,
-        max_step=max_step_s,
+        rtol=rtol,
+        atol=atol,
+        max_step=np.inf if max_step_s is None else max_step_s,
     )
 
     if not sol.success:
@@ -293,7 +310,7 @@ def apply_maneuver(
         mu=float(prop_cfg["mu_m3s2"]),
         re=float(prop_cfg["re_m"]),
         j2=float(prop_cfg["j2"]),
-        max_step_s=float(man_cfg["integrator_step_s"]),
+        **_integrator_settings(prop_cfg, man_cfg),
     )
 
     # Build datetime list for output
@@ -388,7 +405,7 @@ def apply_maneuver_from_state(
         mu=float(prop_cfg["mu_m3s2"]),
         re=float(prop_cfg["re_m"]),
         j2=float(prop_cfg["j2"]),
-        max_step_s=float(man_cfg["integrator_step_s"]),
+        **_integrator_settings(prop_cfg, man_cfg),
     )
 
     times_out = [burn_time + timedelta(seconds=float(t)) for t in t_eval_s]

@@ -428,6 +428,21 @@ def _construct_brief_from_results(
     risk_level = "RED" if highest_pc >= alert_threshold else ("YELLOW" if highest_pc >= cfg["pc"]["elevated_threshold"] else "GREEN")
 
     if maneuverable:
+        rec_dv = rescreen_result.get("recommended_dv_ms")
+        if rec_dv is not None:
+            burn_sentence = (
+                f"Trade-space analysis recommends Δv = {rec_dv} m/s "
+                f"{rescreen_result.get('recommended_dt_hours', 'N/A')} hours before TCA."
+            )
+        elif rescreen_result:
+            burn_sentence = (
+                f"Trade-space analysis recommends no burn: total Pc with no maneuver "
+                f"({rescreen_result.get('baseline_pc_formatted', 'N/A')}) is below the "
+                f"alert threshold ({alert_threshold:.0e})."
+            )
+        else:
+            burn_sentence = "No trade-space analysis was run for this event."
+
         brief = {
             "norad_id": norad_id,
             "object_name": object_name,
@@ -445,8 +460,7 @@ def _construct_brief_from_results(
             "reasoning": (
                 f"Screening found {screen_result.get('n_conjunctions', 0)} conjunctions. "
                 f"Highest Pc: {highest_pc:.2e} at TCA {tca_utc}. "
-                f"Trade-space analysis recommends Δv = {rescreen_result.get('recommended_dv_ms', 'N/A')} m/s "
-                f"{rescreen_result.get('recommended_dt_hours', 'N/A')} hours before TCA."
+                f"{burn_sentence}"
             ),
             "limitations": [
                 "Covariance from nominal model (no operational CDM available)",
