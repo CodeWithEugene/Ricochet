@@ -1,6 +1,8 @@
 # Ricochet — AI Decision Support for Satellite Collision Avoidance
 
-🚀 **Live demo:** [ricochet.streamlit.app](https://ricochet.streamlit.app)
+🚀 **Live App:** [https://ricochet.streamlit.app/](https://ricochet.streamlit.app/)
+
+[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://ricochet.streamlit.app/)
 
 > **⚠ NON-NEGOTIABLE DISCLAIMER:** Public TLEs must not be used for operational conjunction assessment. Operators should contact the [18th Space Defense Squadron](https://www.space-track.org) for authoritative Conjunction Data Messages (CDMs).
 
@@ -127,7 +129,7 @@ This capability exists in operational form at NASA CARA, ESA CREAM, and commerci
 
 ## Live demo
 
-**[ricochet.streamlit.app](https://ricochet.streamlit.app)**
+🔗 **[https://ricochet.streamlit.app/](https://ricochet.streamlit.app/)**
 
 Start with NORAD 56212 (Taifa-1) in Non-Maneuverable mode, then switch to NORAD 25544 (ISS) in Maneuverable mode to see the trade-space heatmap.
 
