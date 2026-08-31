@@ -4,4 +4,4 @@ __pycache__/
 *.pyo
 .pytest_cache/
 audit/*.json
-.cache/
+# .cache/ ships with the repo for Streamlit Cloud demo
