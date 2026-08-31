@@ -107,6 +107,15 @@ with st.sidebar:
         st.markdown("**Maneuver grid**")
         dv_max = st.slider("Max |Δv| (m/s)", 0.1, 5.0, 2.0, 0.1)
         grid_n = st.select_slider("Grid resolution", options=[3, 5, 7, 9], value=5)
+        always_trade_space = st.checkbox(
+            "Always compute trade space",
+            value=True,
+            help=(
+                "Compute the maneuver trade space even when the highest Pc is below the "
+                "elevated threshold. Costs a full rescreen per grid point but shows that "
+                "no burn is needed and that none would induce new risk."
+            ),
+        )
 
     run_analysis = st.button("▶ Run Analysis", type="primary", use_container_width=True)
     st.divider()
@@ -258,7 +267,16 @@ if maneuverable:
     )
 
     rescreen_result = None
-    if best_pc >= elevated_threshold:
+    above_elevated = best_pc >= elevated_threshold
+
+    if above_elevated or always_trade_space:
+        if not above_elevated:
+            st.info(
+                f"Highest Pc ({best_pc:.2e}) is below the elevated threshold "
+                f"({elevated_threshold:.0e}), so no burn is required. The trade space below is "
+                "computed anyway to confirm that no candidate burn would induce new risk."
+            )
+
         with st.spinner(f"Computing {grid_n}×{grid_n} maneuver trade space (this is the Ricochet computation)..."):
             from core.rescreen import rescreen as run_rescreen
             try:
@@ -281,18 +299,46 @@ if maneuverable:
             dv_labels = [f"{v:+.3f}" for v in rescreen_result.dv_values_ms]
             dt_labels = [f"{v / 3600:.1f}h" for v in rescreen_result.dt_values_s]
 
-            # Log-scale the Pc values for visualization
+            # Cells with zero or negligible Pc are floored so they render as
+            # "safe" green instead of dropping out of the heatmap as NaN.
+            pc_display_floor = 1e-12
             with np.errstate(divide='ignore'):
                 log_grid = np.where(
-                    np.isnan(grid_data) | (grid_data <= 0),
+                    np.isnan(grid_data),
                     np.nan,
-                    np.log10(np.maximum(grid_data, 1e-15))
+                    np.log10(np.maximum(grid_data, pc_display_floor)),
                 )
+
+            all_nan = bool(np.all(np.isnan(log_grid)))
+            if all_nan:
+                st.warning(
+                    "Every grid point failed to propagate — the heatmap below is empty. "
+                    "Try a narrower Δv range or a coarser grid."
+                )
+
+            log_floor = np.log10(pc_display_floor)
+            log_ceiling = np.log10(alert_threshold) if all_nan else max(
+                float(np.nanmax(log_grid)), np.log10(alert_threshold)
+            )
+
+            def _fmt_cell(v: float) -> str:
+                if np.isnan(v):
+                    return "n/a"
+                if v < pc_display_floor:
+                    return f"<{pc_display_floor:.0e}"
+                return f"{v:.1e}"
+
+            cell_text = [[_fmt_cell(float(v)) for v in row] for row in grid_data]
 
             fig = go.Figure(data=go.Heatmap(
                 z=log_grid,
                 x=dt_labels,
                 y=dv_labels,
+                zmin=log_floor,
+                zmax=log_ceiling,
+                text=cell_text,
+                texttemplate="%{text}",
+                textfont=dict(size=10),
                 colorscale=[
                     [0.0, "#1a9850"],   # low Pc = green
                     [0.4, "#fee08b"],   # medium = yellow
@@ -306,14 +352,15 @@ if maneuverable:
                 hovertemplate=(
                     "Δv: %{y} m/s<br>"
                     "Burn time: %{x} before TCA<br>"
-                    "Total Pc: 10^%{z:.2f}<extra></extra>"
+                    "Total Pc: %{text}<extra></extra>"
                 ),
             ))
 
-            # Mark the threshold line
-            log_threshold = np.log10(alert_threshold)
+            # "No burn" reference line sits on the dv=0 row; the y axis is
+            # categorical, so it is addressed by row index.
+            zero_dv_row = int(np.argmin(np.abs(rescreen_result.dv_values_ms)))
             fig.add_hline(
-                y=0,
+                y=zero_dv_row,
                 line_dash="dash",
                 line_color="white",
                 annotation_text="No burn",
@@ -343,6 +390,15 @@ if maneuverable:
 
             st.plotly_chart(fig, use_container_width=True)
 
+            baseline_pc = rescreen_result.baseline_pc
+            col_a, col_b, col_c = st.columns(3)
+            with col_a:
+                st.metric("Baseline total Pc (no burn)", f"{baseline_pc:.2e}")
+            with col_b:
+                st.metric("Best cell in grid", f"{np.nanmin(grid_data):.2e}" if not all_nan else "n/a")
+            with col_c:
+                st.metric("Worst cell in grid", f"{np.nanmax(grid_data):.2e}" if not all_nan else "n/a")
+
             # Recommendation callout
             if rescreen_result.recommended_dv_ms is not None:
                 rec_pc = rescreen_result.grid_points
@@ -367,6 +423,12 @@ if maneuverable:
 *This is the minimum-|Δv| burn that reduces total Pc below {alert_threshold:.0e}.*  
 *{best_gp.force_model_note}*
                         """)
+            elif baseline_pc < alert_threshold:
+                st.success(
+                    f"No burn recommended. Total Pc with no maneuver ({baseline_pc:.2e}) is already "
+                    f"below the alert threshold ({alert_threshold:.0e}), and the grid confirms that "
+                    "candidate burns would not reduce risk further."
+                )
             else:
                 st.warning(
                     f"No burn in the ±{dv_max} m/s grid reduces total Pc below {alert_threshold:.0e}. "
@@ -376,7 +438,8 @@ if maneuverable:
     else:
         st.info(
             f"No conjunctions above elevated threshold ({elevated_threshold:.0e}). "
-            "Trade-space analysis not needed."
+            "Trade-space analysis not needed. Enable **Always compute trade space** in the "
+            "sidebar to see the heatmap anyway."
         )
 
 
