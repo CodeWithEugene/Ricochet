@@ -1,0 +1,50 @@
+{
+  "event_id": "87d6adfe-8e10-423a-9ef6-19ee0605485f",
+  "timestamp": "2026-08-31T11:19:07.033297+00:00",
+  "tool": "screen",
+  "inputs": {
+    "norad_id": 25544,
+    "window_days": 7
+  },
+  "outputs": {
+    "norad_id": 25544,
+    "window_days": 7,
+    "n_conjunctions": 3,
+    "conjunctions": [
+      {
+        "rank": 1,
+        "secondary_norad": 90104,
+        "secondary_name": "SYNTH-LEO-024",
+        "tca_utc": "2026-08-31T16:47:08.089246+00:00",
+        "miss_km": 33.631,
+        "rel_v_kms": 9.432,
+        "primary_epoch_age_days": 973.2,
+        "secondary_epoch_age_days": 752.3
+      },
+      {
+        "rank": 2,
+        "secondary_norad": 90095,
+        "secondary_name": "SYNTH-LEO-015",
+        "tca_utc": "2026-09-03T07:32:04.145012+00:00",
+        "miss_km": 35.784,
+        "rel_v_kms": 11.822,
+        "primary_epoch_age_days": 975.8,
+        "secondary_epoch_age_days": 758.7
+      },
+      {
+        "rank": 3,
+        "secondary_norad": 90105,
+        "secondary_name": "SYNTH-LEO-025",
+        "tca_utc": "2026-09-05T01:31:08.399615+00:00",
+        "miss_km": 31.197,
+        "rel_v_kms": 10.983,
+        "primary_epoch_age_days": 977.6,
+        "secondary_epoch_age_days": 763.1
+      }
+    ]
+  },
+  "model_name": "",
+  "model_version": "",
+  "duration_s": 0.33008408546447754,
+  "session_id": "abeba8fc-a87e-4db1-9d03-2837d2634cd7"
+}
